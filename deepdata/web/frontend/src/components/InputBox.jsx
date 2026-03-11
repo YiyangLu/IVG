@@ -73,8 +73,8 @@ export function InputBox({ onSend, onDeepPlot, disabled, isProcessing, sessionId
     const trimmed = input.trim();
     if (disabled) return;
 
-    // Deep Plot mode: triggered by files OR sessionType='deep_plot'
-    if ((uploadedFiles.length > 0 || sessionType === 'deep_plot') && onDeepPlot) {
+    // Deep Plot mode: only when sessionType is explicitly 'deep_plot'
+    if (sessionType === 'deep_plot' && onDeepPlot) {
       // Deep Plot: call API with files and duration (prompt is optional, files can be empty)
       onDeepPlot({
         files: uploadedFiles.map(f => f.name),
@@ -88,11 +88,17 @@ export function InputBox({ onSend, onDeepPlot, disabled, isProcessing, sessionId
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
-    } else if (trimmed) {
-      // Normal mode: send to WebSocket (requires input)
-      onSend(trimmed);
+    } else if (trimmed || uploadedFiles.length > 0) {
+      // Agent mode: send text to WebSocket (files already uploaded to cwd)
+      const fileNames = uploadedFiles.map(f => f.name);
+      const message = fileNames.length > 0 && trimmed
+        ? `[Uploaded: ${fileNames.join(', ')}]\n${trimmed}`
+        : fileNames.length > 0
+        ? `[Uploaded: ${fileNames.join(', ')}]`
+        : trimmed;
+      onSend(message);
+      setUploadedFiles([]);
       setInput('');
-      // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -308,8 +314,8 @@ export function InputBox({ onSend, onDeepPlot, disabled, isProcessing, sessionId
                 </svg>
               </button>
 
-              {/* Deep Plot indicator - shown in deep_plot mode or when files uploaded */}
-              {(sessionType === 'deep_plot' || uploadedFiles.length > 0) && (
+              {/* Deep Plot indicator - only shown in deep_plot mode */}
+              {sessionType === 'deep_plot' && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 rounded-full">
                   <svg className="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -334,7 +340,7 @@ export function InputBox({ onSend, onDeepPlot, disabled, isProcessing, sessionId
               onClick={handleSend}
               disabled={disabled || (uploadedFiles.length === 0 && !input.trim())}
               className="p-2 rounded-full bg-black hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              title={uploadedFiles.length > 0 ? 'Start Deep Plot analysis' : 'Send message'}
+              title={sessionType === 'deep_plot' ? 'Start Deep Plot analysis' : 'Send message'}
             >
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
